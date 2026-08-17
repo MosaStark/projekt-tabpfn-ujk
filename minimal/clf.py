@@ -41,4 +41,4 @@ class SVM(Clf):
 class TABPFN(Clf):
     NAME="TabPFN"
     def __init__(self):
-        self.model = TabPFNClassifier(device='cuda')
+        self.model = TabPFNClassifier(device='cpu')

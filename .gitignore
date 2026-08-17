@@ -1,0 +1,6 @@
+__pycache__/
+output/
+*.npz
+*.ckpt
+.venv/
+env/
