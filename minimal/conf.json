@@ -1,0 +1,7 @@
+{
+	"data_path":"zbiory_danych/cmc",
+	"split_path":"splits/cmc/",
+	"out_path":"shapley/cmc/",
+	"clf":["RF"],
+	"k":[50,100,200]
+}
