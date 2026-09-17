@@ -3,7 +3,7 @@ import shap
 import seaborn as sn
 import argparse
 import matplotlib.pyplot as plt
-import os.path
+import os,os.path
 from tqdm import tqdm
 import base
 import make_results
@@ -33,16 +33,37 @@ def make_shap(shap_exp):
         values_i=helper(split_i,clf_i)
         np.savez(out_i, values_i)
 
-def show_shapley(shapley_path):
+def show_shapley( in_path,
+                  out_path,
+                  id_size=2):
+    shap_dirs=[]
+    for root, dirs, files in os.walk(in_path):
+        for dir_i in dirs:
+            path_i=f"{root}/{dir_i}"
+            if(is_shap_dir(path_i)):
+                shap_dirs.append(path_i)
+    base.make_dir(out_path)
+    for dir_i in shap_dirs:
+        matrix_i=get_matrix(dir_i)
+        raw_i=dir_i.split("/")[-id_size:]
+        raw_i="_".join(raw_i)
+        show_heatmap( matrix_i,
+                      raw_i,
+                      out_path)
+
+def is_shap_dir(in_path):
+    paths=[path_i.split(".")[-1]=="npz" 
+             for path_i in base.top_files(in_path)]
+    return all(paths)
+
+def get_matrix(in_path):
     all_shap=[]
-    for id_i, path_j in base.iter_files(shapley_path):
+    for id_i, path_j in base.iter_files(in_path):
         shap_j=np.load(path_j)["arr_0"]
         all_shap.append(shap_j)
     shap_arr=np.concatenate(all_shap,axis=0)
-    shap_matrix=np.mean(shap_arr,axis=0)
-    print(shap_matrix.shape)
-    show_heatmap( shap_matrix,
-                  shapley_path)
+    return np.mean(shap_arr,axis=0)
+
 
 def show_heatmap( matrix,
                   title,
@@ -74,26 +95,15 @@ def shapley_exp(in_path):
             exp_j.out_path+=f"/{exp_j.clf_type}"
             make_shap(exp_j)
 
-def old_exp(in_path):
-    conf=base.read_json(in_path)
-    prototype=exp.ExpParams( conf["data_path"],
-                             conf["split_path"],
-                             conf["out_path"])
-    clf_iter=prototype.iter_exp("clf_type",conf["clf"])
-    base.make_dir(prototype.out_path)
-    for exp_i in clf_iter:
-        k_iter=exp_i.iter_exp( "k",conf["k"])
-        for exp_j in k_iter:
-            exp_j.out_path+=f"{exp_j.clf_type}_{exp_j.k}"
-            make_shap(exp_j)
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--conf_path",type=str,default="conf.json") 
-    parser.add_argument("--shapley_path",type=str,default="shapley") 
-    parser.add_argument("--cmd", type=str,default="make")
+    parser.add_argument("--in_shap",type=str,default="shapley") 
+    parser.add_argument("--out_shap",type=str,default="heat") 
+    parser.add_argument("--cmd", type=str,default="show")
     args=parser.parse_args()
     if(args.cmd=="make"):
         shapley_exp(args.conf_path)
     if(args.cmd=="show"):
-        show_shapley(args.shapley_path)
+        show_shapley( args.in_shap,
+                      args.out_shap)
