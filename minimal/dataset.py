@@ -36,7 +36,10 @@ class Dataset(object):
             X_test,y_test=self.X[test_index],self.y[test_index]
         y_pred=clf.predict(X_test)
         return base.Result(y_pred,y_test)
-
+    
+    def remove_col(self,i):
+        return Dataset(X=np.delete(self.X,[i],1),
+                       y=self.y)
     def params_dict(self):
         return { "n_cats":self.n_cats(),
                  "dims":(self.dim(),),
