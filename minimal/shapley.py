@@ -61,6 +61,21 @@ def show_heatmap( matrix,
 
 def shapley_exp(in_path):
     conf=base.read_json(in_path)
+    exp_params=exp.from_dir( conf["data"],
+                             conf["split"],
+                             conf["clf"])
+    out_path=conf["out_path"]
+    base.make_dir(out_path)
+    for exp_i in exp_params:
+        exp_i.out_path=f"{out_path}/{exp_i.id}"
+        exp_i.k=conf["k"]
+        base.make_dir(exp_i.out_path)
+        for exp_j in exp_i.iter_exp("clf_type",conf["clf"]):
+            exp_j.out_path+=f"/{exp_j.clf_type}"
+            make_shap(exp_j)
+
+def old_exp(in_path):
+    conf=base.read_json(in_path)
     prototype=exp.ExpParams( conf["data_path"],
                              conf["split_path"],
                              conf["out_path"])
@@ -75,8 +90,8 @@ def shapley_exp(in_path):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--conf_path",type=str,default="conf.json") 
-    parser.add_argument("--shapley_path",type=str,default="shapley/cmc/RF_100") 
-    parser.add_argument("--cmd", type=str,default="show")
+    parser.add_argument("--shapley_path",type=str,default="shapley") 
+    parser.add_argument("--cmd", type=str,default="make")
     args=parser.parse_args()
     if(args.cmd=="make"):
         shapley_exp(args.conf_path)
