@@ -17,19 +17,23 @@ def make_shap(shap_exp):
         train,test=data.divide(split_i)
         if(shap_exp.k is None):
             background_data=train.X
+            test_data=test.X
         else:
-            kmeans_summary = shap.kmeans( train.X, 
-                                          shap_exp.k)
-            background_data = kmeans_summary.data     
+            background_data = shap.kmeans( train.X, 
+                                           shap_exp.k).data
+            test_data =shap.kmeans( test.X, 
+                                    shap_exp.k).data
         explainer=shap.Explainer( clf_i.model.predict_proba,
-                                  train.X)
-        shap_values = explainer(test.X)#,max_evals=620)
+                                  background_data)
+#        s_test=shap.maskers.Independent(test.X, max_samples=100)
+        shap_values = explainer(test_data)#,max_evals=100)
         return shap_values.values
     print(shap_exp.out_path)
     base.make_dir(shap_exp.out_path)
     for i,split_i in enumerate(tqdm(splits)):
         out_i=f"{shap_exp.out_path}/{i}"
         clf_i,_=split_i.fit_clf(data,clf_type())
+        print(f"Clf trained:{clf_i}")
         values_i=helper(split_i,clf_i)
         np.savez(out_i, values_i)
 
@@ -54,6 +58,8 @@ def show_shapley( in_path,
 def is_shap_dir(in_path):
     paths=[path_i.split(".")[-1]=="npz" 
              for path_i in base.top_files(in_path)]
+    if(len(paths)==0):
+        return False
     return all(paths)
 
 def get_matrix(in_path):
@@ -93,6 +99,7 @@ def shapley_exp(in_path):
         base.make_dir(exp_i.out_path)
         for exp_j in exp_i.iter_exp("clf_type",conf["clf"]):
             exp_j.out_path+=f"/{exp_j.clf_type}"
+            print(exp_j)
             make_shap(exp_j)
 
 if __name__ == '__main__':
@@ -100,7 +107,7 @@ if __name__ == '__main__':
     parser.add_argument("--conf_path",type=str,default="conf.json") 
     parser.add_argument("--in_shap",type=str,default="shapley") 
     parser.add_argument("--out_shap",type=str,default="heat") 
-    parser.add_argument("--cmd", type=str,default="show")
+    parser.add_argument("--cmd", type=str,default="make")
     args=parser.parse_args()
     if(args.cmd=="make"):
         shapley_exp(args.conf_path)
