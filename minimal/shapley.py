@@ -15,7 +15,8 @@ def make_shap(shap_exp):
     clf_type=shap_exp.get_clf()
     def helper(split_i,clf_i):
         train,test=data.divide(split_i)
-        if(shap_exp.k is None):
+        if((shap_exp.k is None) or 
+            (shap_exp.k > test.X.shape[0])):
             background_data=train.X
             test_data=test.X
         else:
@@ -37,9 +38,9 @@ def make_shap(shap_exp):
         values_i=helper(split_i,clf_i)
         np.savez(out_i, values_i)
 
-def show_shapley( in_path,
-                  out_path,
-                  id_size=2):
+def make_matrix( in_path,
+                 out_path,
+                 id_size=2):
     shap_dirs=[]
     for root, dirs, files in os.walk(in_path):
         for dir_i in dirs:
@@ -51,9 +52,19 @@ def show_shapley( in_path,
         matrix_i=get_matrix(dir_i)
         raw_i=dir_i.split("/")[-id_size:]
         raw_i="_".join(raw_i)
+        np.savez( f"{out_path}/{raw_i}", 
+                  matrix_i)
+
+def show_shapley( matrix_path,
+                  heat_path):
+    base.make_dir(heat_path)
+    for path_i in base.top_files(matrix_path):
+        matrix_i=np.load(path_i)["arr_0"]
+        id_i=path_i.split("/")[-1]
+        id_i=id_i.split(".")[0]
         show_heatmap( matrix_i,
-                      raw_i,
-                      out_path)
+                      id_i,
+                      heat_path)
 
 def is_shap_dir(in_path):
     paths=[path_i.split(".")[-1]=="npz" 
@@ -105,12 +116,14 @@ def shapley_exp(in_path):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--conf_path",type=str,default="conf.json") 
-    parser.add_argument("--in_shap",type=str,default="shapley") 
-    parser.add_argument("--out_shap",type=str,default="heat") 
+    parser.add_argument("--out",type=str,default="output") 
+#    parser.add_argument("--out_shap",type=str,default="output/matrix") 
     parser.add_argument("--cmd", type=str,default="make")
     args=parser.parse_args()
     if(args.cmd=="make"):
         shapley_exp(args.conf_path)
     if(args.cmd=="show"):
-        show_shapley( args.in_shap,
-                      args.out_shap)
+#        make_matrix( f"{args.out}/shapley",
+#                     f"{args.out}/matrix")
+         show_shapley(f"{args.out}/matrix",
+                      f"{args.out}/plots" )
