@@ -58,19 +58,16 @@ if __name__ == '__main__':
     parser.add_argument("--n_repeats", type=int, default=1)
     parser.add_argument("--n_splits", type=int, default=10)
     parser.add_argument("--clfs", type=str, nargs="+",
-                         default=["TabPFN"],#["LR", "SVM", "RF", "GRAD", "MLP"],
+                         default=["TabPFN"],#["LR", "SVM", "RF", "GRAD"],
                          help=f"lista klasyfikatorow sposrod: {list(CLF_DICT.keys())}")
-    parser.add_argument("--skip_splits", action="store_true",
-                         help="pomija generowanie splitow (zaklada, ze juz istnieja)")
     args = parser.parse_args()
-
-    if not args.skip_splits:
+    if not os.path.exists(args.split_path):
         print("=== make_splits ===")
         make_splits(args.data_path,
                     n_repeats=args.n_repeats,
                     n_splits=args.n_splits,
                     split_path=args.split_path)
-
+    
     print("=== make_result ===")
     for clf_name in args.clfs:
         if clf_name not in CLF_DICT:
