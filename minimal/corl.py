@@ -28,11 +28,7 @@ class ShapleyMatrix:
         return f"{self.data}_{self.clf}"
 
 def corl_plot(in_path):
-	matrices=[ ShapleyMatrix.from_path(path_i)
-	            for path_i in base.top_files(in_path)]
-	shap_dict=defaultdict(dict)
-	for matrix_i in matrices:
-		shap_dict[matrix_i.data][matrix_i.clf]=matrix_i
+	shap_dict=get_matrices(in_path)
 	plt.rcParams.update({'font.size': 12})
 	for key_i,value_i in shap_dict.items():
 		x=value_i["RF"].as_arr()
@@ -45,6 +41,43 @@ def corl_plot(in_path):
 		plt.title(key_i)
 		plt.tight_layout()
 		plt.show()
+	
+def get_matrices(in_path):
+	matrices=[ ShapleyMatrix.from_path(path_i)
+	            for path_i in base.top_files(in_path)]
+	shap_dict=defaultdict(dict)
+	for matrix_i in matrices:
+		shap_dict[matrix_i.data][matrix_i.clf]=matrix_i
+	return shap_dict
 
-corl_plot("output/matrix")
+def diff_corl( matrix_path,
+	           result_path):
+    import pred
+    shap_dict=get_matrices(matrix_path)
+    diff,corl=[],[]
+    for id_i,df_i in pred.acc_by_clf(result_path):
+        diff.append(df_i["RF"]-df_i["TabPFN"])
+        shap_i=shap_dict[id_i]
+        x=shap_i["RF"].as_arr()
+        y=shap_i["TabPFN"].as_arr()
+        corl.append(pearsonr(x, y)[0])
+    plot(diff,
+	     corl,
+	     "diff",
+	     "corl",
+	     "Corl")
+
+def plot(x,
+	     y,
+	     x_label,
+	     y_label,
+	     title):
+	plt.scatter(x, y, color="steelblue", edgecolor="black", alpha=0.7)
+	plt.xlabel(x_label)
+	plt.ylabel(y_label)
+	plt.title(title)
+	plt.tight_layout()
+	plt.show()
+
+diff_corl("output/matrix","results")
 
