@@ -31,17 +31,12 @@ def corl_plot(in_path):
 	shap_dict=get_matrices(in_path)
 	plt.rcParams.update({'font.size': 12})
 	for key_i,value_i in shap_dict.items():
-		x=value_i["RF"].as_arr()
-		y=value_i["TabPFN"].as_arr()
-		r, p = pearsonr(x, y)
-		plt.scatter(x, y, color="steelblue", edgecolor="black", alpha=0.7)
-		text=f"\nPearson correlation: r = {r:.4f}, p = {p:.3e}"
-		plt.xlabel("RF"+text)
-		plt.ylabel("TabPFN")
-		plt.title(key_i)
-		plt.tight_layout()
-		plt.show()
-	
+		plot(value_i["RF"].as_arr(),
+	         value_i["TabPFN"].as_arr(),
+	         "RF",
+	         "TabPFN",
+	         key_i)
+
 def get_matrices(in_path):
 	matrices=[ ShapleyMatrix.from_path(path_i)
 	            for path_i in base.top_files(in_path)]
@@ -72,12 +67,15 @@ def plot(x,
 	     x_label,
 	     y_label,
 	     title):
+	r, p = pearsonr(x, y)
 	plt.scatter(x, y, color="steelblue", edgecolor="black", alpha=0.7)
-	plt.xlabel(x_label)
+	text=f"\nPearson correlation: r = {r:.4f}, p = {p:.3e}"
+	plt.xlabel(x_label+text)
 	plt.ylabel(y_label)
 	plt.title(title)
 	plt.tight_layout()
 	plt.show()
 
+#corl_plot("output/matrix")
 diff_corl("output/matrix","results")
 
