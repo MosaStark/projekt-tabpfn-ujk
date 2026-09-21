@@ -3,7 +3,9 @@ from dataclasses import dataclass
 from collections import defaultdict
 from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
+import argparse
 import base
+import dataset
 
 @dataclass
 class ShapleyMatrix:
@@ -29,13 +31,20 @@ class ShapleyMatrix:
 
 def corl_plot(in_path):
 	shap_dict=get_matrices(in_path)
+	lines=[]
 	plt.rcParams.update({'font.size': 12})
 	for key_i,value_i in shap_dict.items():
-		plot(value_i["RF"].as_arr(),
-	         value_i["TabPFN"].as_arr(),
-	         "RF",
-	         "TabPFN",
-	         key_i)
+		r,p=plot(value_i["RF"].as_arr(),
+	             value_i["TabPFN"].as_arr(),
+	             x_label="RF",
+	             y_label="TabPFN",
+	             title=key_i)
+		lines.append([key_i,r,p])
+	df=dataset.make_df(helper=lambda x:x,
+                       iterable=lines,
+                       cols=["dataset","corl","p"])
+	df=df.round(4)
+	print(df.to_latex(index=False))
 
 def get_matrices(in_path):
 	matrices=[ ShapleyMatrix.from_path(path_i)
@@ -51,7 +60,10 @@ def diff_corl( matrix_path,
     shap_dict=get_matrices(matrix_path)
     diff,corl=[],[]
     for id_i,df_i in pred.acc_by_clf(result_path):
-        diff.append(df_i["RF"]-df_i["TabPFN"])
+        diff_i=df_i["RF"]-df_i["TabPFN"]
+        print(id_i)
+        print(round(df_i["TabPFN"],4))
+        diff.append(diff_i)
         shap_i=shap_dict[id_i]
         x=shap_i["RF"].as_arr()
         y=shap_i["TabPFN"].as_arr()
@@ -60,7 +72,7 @@ def diff_corl( matrix_path,
 	     corl,
 	     "diff",
 	     "corl",
-	     "Corl")
+	     "Shapley values corelation")
 
 def plot(x,
 	     y,
@@ -75,7 +87,16 @@ def plot(x,
 	plt.title(title)
 	plt.tight_layout()
 	plt.show()
+	return r,p
 
-#corl_plot("output/matrix")
-diff_corl("output/matrix","results")
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser()
+	parser.add_argument("--result", type=str, default="results")
+	parser.add_argument("--output", type=str, default="output/matrix")
+	parser.add_argument("--cmd", type=str, default="diff")
+	args=parser.parse_args()
+	if(args.cmd=="diff"):
+		diff_corl(args.output,args.result)
+	if(args.cmd=="corl"):
+		corl_plot(args.output)
 
