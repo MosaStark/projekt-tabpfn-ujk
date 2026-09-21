@@ -3,8 +3,10 @@ from dataclasses import dataclass
 from collections import defaultdict
 from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
 import argparse
 import base
+import pred
 import dataset
 
 @dataclass
@@ -13,6 +15,14 @@ class ShapleyMatrix:
     clf:str
     matrix:np.array
 
+    @property
+    def cats(self):
+    	return self.matrix.shape[0]
+
+    @property
+    def feats(self):
+    	return self.matrix.shape[1]
+    
     @classmethod
     def from_path(cls,in_path):
         id_i=in_path.split("/")[-1]
@@ -56,7 +66,6 @@ def get_matrices(in_path):
 
 def diff_corl( matrix_path,
 	           result_path):
-    import pred
     shap_dict=get_matrices(matrix_path)
     diff,corl=[],[]
     for id_i,df_i in pred.acc_by_clf(result_path):
@@ -89,14 +98,35 @@ def plot(x,
 	plt.show()
 	return r,p
 
+def residuals(matrix_path):
+    shap_dict=get_matrices(matrix_path)
+    for key_i,value_i in shap_dict.items():
+        model_i = LinearRegression()
+        x=value_i["RF"].as_arr()
+        y=value_i["TabPFN"].as_arr()
+        x=x.reshape(-1, 1) 
+        y=y.reshape(-1, 1) 
+        model_i.fit(x, y)
+        y_pred = model_i.predict(x)
+        res=y-y_pred
+        res-=np.mean(res)
+        res/=np.std(res)
+        res=np.abs(res)
+        plot(x=x.flatten(),
+        	 y=res.flatten(),
+        	 x_label="RF",
+        	 y_label="TabPFN",
+        	 title=key_i)
+
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--result", type=str, default="results")
 	parser.add_argument("--output", type=str, default="output/matrix")
-	parser.add_argument("--cmd", type=str, default="diff")
+	parser.add_argument("--cmd", type=str, default="res")
 	args=parser.parse_args()
 	if(args.cmd=="diff"):
 		diff_corl(args.output,args.result)
 	if(args.cmd=="corl"):
 		corl_plot(args.output)
-
+	if(args.cmd=="res"):
+		residuals(args.output)
