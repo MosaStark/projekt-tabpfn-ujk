@@ -3,7 +3,11 @@ from dataclasses import dataclass
 from collections import defaultdict
 from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+import argparse
 import base
+import pred
+import dataset
 
 @dataclass
 class ShapleyMatrix:
@@ -11,6 +15,14 @@ class ShapleyMatrix:
     clf:str
     matrix:np.array
 
+    @property
+    def cats(self):
+    	return self.matrix.shape[0]
+
+    @property
+    def feats(self):
+    	return self.matrix.shape[1]
+    
     @classmethod
     def from_path(cls,in_path):
         id_i=in_path.split("/")[-1]
@@ -29,19 +41,21 @@ class ShapleyMatrix:
 
 def corl_plot(in_path):
 	shap_dict=get_matrices(in_path)
+	lines=[]
 	plt.rcParams.update({'font.size': 12})
 	for key_i,value_i in shap_dict.items():
-		x=value_i["RF"].as_arr()
-		y=value_i["TabPFN"].as_arr()
-		r, p = pearsonr(x, y)
-		plt.scatter(x, y, color="steelblue", edgecolor="black", alpha=0.7)
-		text=f"\nPearson correlation: r = {r:.4f}, p = {p:.3e}"
-		plt.xlabel("RF"+text)
-		plt.ylabel("TabPFN")
-		plt.title(key_i)
-		plt.tight_layout()
-		plt.show()
-	
+		r,p=plot(value_i["RF"].as_arr(),
+	             value_i["TabPFN"].as_arr(),
+	             x_label="RF",
+	             y_label="TabPFN",
+	             title=key_i)
+		lines.append([key_i,r,p])
+	df=dataset.make_df(helper=lambda x:x,
+                       iterable=lines,
+                       cols=["dataset","corl","p"])
+	df=df.round(4)
+	print(df.to_latex(index=False))
+
 def get_matrices(in_path):
 	matrices=[ ShapleyMatrix.from_path(path_i)
 	            for path_i in base.top_files(in_path)]
@@ -52,11 +66,13 @@ def get_matrices(in_path):
 
 def diff_corl( matrix_path,
 	           result_path):
-    import pred
     shap_dict=get_matrices(matrix_path)
     diff,corl=[],[]
     for id_i,df_i in pred.acc_by_clf(result_path):
-        diff.append(df_i["RF"]-df_i["TabPFN"])
+        diff_i=df_i["RF"]-df_i["TabPFN"]
+        print(id_i)
+        print(round(df_i["TabPFN"],4))
+        diff.append(diff_i)
         shap_i=shap_dict[id_i]
         x=shap_i["RF"].as_arr()
         y=shap_i["TabPFN"].as_arr()
@@ -65,19 +81,52 @@ def diff_corl( matrix_path,
 	     corl,
 	     "diff",
 	     "corl",
-	     "Corl")
+	     "Shapley values corelation")
 
 def plot(x,
 	     y,
 	     x_label,
 	     y_label,
 	     title):
+	r, p = pearsonr(x, y)
 	plt.scatter(x, y, color="steelblue", edgecolor="black", alpha=0.7)
-	plt.xlabel(x_label)
+	text=f"\nPearson correlation: r = {r:.4f}, p = {p:.3e}"
+	plt.xlabel(x_label+text)
 	plt.ylabel(y_label)
 	plt.title(title)
 	plt.tight_layout()
 	plt.show()
+	return r,p
 
-diff_corl("output/matrix","results")
+def residuals(matrix_path):
+    shap_dict=get_matrices(matrix_path)
+    for key_i,value_i in shap_dict.items():
+        model_i = LinearRegression()
+        x=value_i["RF"].as_arr()
+        y=value_i["TabPFN"].as_arr()
+        x=x.reshape(-1, 1) 
+        y=y.reshape(-1, 1) 
+        model_i.fit(x, y)
+        y_pred = model_i.predict(x)
+        res=y-y_pred
+        res-=np.mean(res)
+        res/=np.std(res)
+        res=np.abs(res)
+        plot(x=x.flatten(),
+        	 y=res.flatten(),
+        	 x_label="RF",
+        	 y_label="TabPFN",
+        	 title=key_i)
 
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser()
+	parser.add_argument("--result", type=str, default="results")
+	parser.add_argument("--output", type=str, default="output/matrix")
+	parser.add_argument("--cmd", type=str, default="res")
+	args=parser.parse_args()
+	if(args.cmd=="diff"):
+		diff_corl(args.output,args.result)
+	if(args.cmd=="corl"):
+		corl_plot(args.output)
+	if(args.cmd=="res"):
+		residuals(args.output)
