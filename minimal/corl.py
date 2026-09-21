@@ -39,6 +39,23 @@ class ShapleyMatrix:
     def __repr__(self):
         return f"{self.data}_{self.clf}"
 
+    def get_cord(self,i):
+    	clf_i= i % self.feats 
+    	feat_i= np.ceil(i/self.cats)
+    	return (int(clf_i),int(feat_i))
+    
+def residuals(value_i):
+    model_i = LinearRegression()
+    x=value_i["RF"].as_arr()
+    y=value_i["TabPFN"].as_arr()
+    x=x.reshape(-1, 1) 
+    y=y.reshape(-1, 1) 
+    model_i.fit(x, y)
+    y_pred = model_i.predict(x)
+    res=y-y_pred
+    res=(res-np.mean(res))/np.std(res)      	
+    return x,res
+
 def corl_plot(in_path):
 	shap_dict=get_matrices(in_path)
 	lines=[]
@@ -98,19 +115,10 @@ def plot(x,
 	plt.show()
 	return r,p
 
-def residuals(matrix_path):
+def plot_residuals(matrix_path):
     shap_dict=get_matrices(matrix_path)
     for key_i,value_i in shap_dict.items():
-        model_i = LinearRegression()
-        x=value_i["RF"].as_arr()
-        y=value_i["TabPFN"].as_arr()
-        x=x.reshape(-1, 1) 
-        y=y.reshape(-1, 1) 
-        model_i.fit(x, y)
-        y_pred = model_i.predict(x)
-        res=y-y_pred
-        res-=np.mean(res)
-        res/=np.std(res)
+        x,res=residuals(value_i)
         res=np.abs(res)
         plot(x=x.flatten(),
         	 y=res.flatten(),
@@ -118,15 +126,29 @@ def residuals(matrix_path):
         	 y_label="TabPFN",
         	 title=key_i)
 
+def outliners(matrix_path):
+    shap_dict=get_matrices(matrix_path)
+    for key_i,value_i in shap_dict.items():
+        x,res=residuals(value_i)
+        res=res.flatten()
+        res=np.abs(res)
+        indices=np.where(res>3)[0]
+        print(key_i)
+        for i in indices:
+            cord_i= value_i["RF"].get_cord(i)
+            print(cord_i)
+
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--result", type=str, default="results")
 	parser.add_argument("--output", type=str, default="output/matrix")
-	parser.add_argument("--cmd", type=str, default="res")
+	parser.add_argument("--cmd", type=str, default="out")
 	args=parser.parse_args()
 	if(args.cmd=="diff"):
 		diff_corl(args.output,args.result)
 	if(args.cmd=="corl"):
 		corl_plot(args.output)
 	if(args.cmd=="res"):
-		residuals(args.output)
+		plot_residuals(args.output)
+	if(args.cmd=="out"):
+		outliners(args.output)
