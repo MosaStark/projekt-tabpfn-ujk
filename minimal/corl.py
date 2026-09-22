@@ -4,6 +4,7 @@ from collections import defaultdict
 from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
+from collections import Counter
 import argparse
 import base
 import pred
@@ -11,38 +12,47 @@ import dataset
 
 @dataclass
 class ShapleyMatrix:
-    data:str
-    clf:str
-    matrix:np.array
+	data:str
+	clf:str
+	matrix:np.array
 
-    @property
-    def cats(self):
-    	return self.matrix.shape[0]
+	@property
+	def cats(self):
+		return self.matrix.shape[1]
 
-    @property
-    def feats(self):
-    	return self.matrix.shape[1]
+	@property
+	def feats(self):
+		return self.matrix.shape[0]
+
+	def __iter__(self):
+		for i in range(self.cats):
+			for j in range(self.feats):
+				yield (i,j),self.matrix[j][i]
     
-    @classmethod
-    def from_path(cls,in_path):
-        id_i=in_path.split("/")[-1]
-        id_i=id_i.split(".")[0]
-        data_i,clf_i=id_i.split("_")
-        matrix_i=np.load(in_path)["arr_0"]
-        return cls( data_i,
+	@classmethod
+	def from_path(cls,in_path):
+		id_i=in_path.split("/")[-1]
+		id_i=id_i.split(".")[0]
+		data_i,clf_i=id_i.split("_")
+		matrix_i=np.load(in_path)["arr_0"]
+		return cls( data_i,
         	        clf_i,
         	        matrix_i)
 
-    def as_arr(self):
-    	return self.matrix.flatten()
+	def as_arr(self):
+		arr=[]
+		for (i,j),value in self:
+			arr.append(value)
+		return np.array(arr)
+#    	return self.matrix.flatten()
 
-    def __repr__(self):
-        return f"{self.data}_{self.clf}"
+	def __repr__(self):
+		return f"{self.data}_{self.clf}"
 
-    def get_cord(self,i):
-    	clf_i= i % self.feats 
-    	feat_i= np.ceil(i/self.cats)
-    	return (int(clf_i),int(feat_i))
+	def get_cord(self,i):
+		clf_i= i % self.cats 
+		feat_i= np.ceil(i/self.feats)
+		return (int(clf_i),int(feat_i))
     
 def residuals(value_i):
     model_i = LinearRegression()
@@ -126,17 +136,51 @@ def plot_residuals(matrix_path):
         	 y_label="TabPFN",
         	 title=key_i)
 
-def outliners(matrix_path):
+def outliners(matrix_path,
+	          result_path="results"):
     shap_dict=get_matrices(matrix_path)
+    result_dict=dict(pred.acc_by_clf(result_path))
+    x,y=[],[]
     for key_i,value_i in shap_dict.items():
-        x,res=residuals(value_i)
+        _,res=residuals(value_i)
         res=res.flatten()
         res=np.abs(res)
-        indices=np.where(res>3)[0]
+        df_i=result_dict[key_i]
+        diff_i=df_i["RF"]-df_i["TabPFN"]
         print(key_i)
-        for i in indices:
-            cord_i= value_i["RF"].get_cord(i)
-            print(cord_i)
+        x.append(diff_i)
+        y.append(np.amax(res))
+        res=np.ceil(res)
+        count=Counter(res)
+        keys=list(count.keys())
+        keys.sort()
+        print([count[key_i] for key_i in keys])
+    plot( x=x,
+    	  y=y,
+    	  x_label="diff",
+    	  y_label="max_residuals",
+    	  title="Maximal resuidals")
+
+def outliners_plot(matrix_path,
+	               data_path="data"):
+    shap_dict=get_matrices(matrix_path)
+    size_dict=dataset.cls_sizes(data_path)
+    for key_i,value_i in shap_dict.items():
+        shap_val=value_i["RF"]
+        x,res=residuals(value_i)
+        size_i=size_dict[key_i]
+        res=res.flatten()
+        res=np.abs(res)
+        size_vec=[]
+        for c in range(shap_val.cats):
+        	for f in range(shap_val.feats):
+        		size_vec.append(size_i[c])
+        res[res<3]=0
+        plot(x=size_vec,
+        	 y=res,
+        	 x_label="class size",
+        	 y_label="residuals",
+        	 title=key_i)
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
@@ -144,6 +188,7 @@ if __name__ == '__main__':
 	parser.add_argument("--output", type=str, default="output/matrix")
 	parser.add_argument("--cmd", type=str, default="out")
 	args=parser.parse_args()
+#	raise Exception(args.cmd)
 	if(args.cmd=="diff"):
 		diff_corl(args.output,args.result)
 	if(args.cmd=="corl"):
