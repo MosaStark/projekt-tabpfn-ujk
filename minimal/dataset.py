@@ -129,8 +129,22 @@ def make_desc(in_path):
     print(df)
     return df
 
+def cls_sizes(in_path):
+    cls_dict={}
+    for path_i in base.top_files(in_path):
+        data_i=read_csv(path_i)
+        sizes=data_i.class_sizes()
+        max_i=max(list(sizes.values()))
+        dict_i={ int(cls_j): round(size_j/max_i,4)
+                 for cls_j,size_j in sizes.items()}
+        cls_dict[path_i.split("/")[-1]]=dict_i
+    return cls_dict
+#        print(path_i)
+#        print(dict_i)
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--in_path", type=str,default="test")
+    parser.add_argument("--in_path", type=str,default="data")
     args=parser.parse_args()
-    make_desc(args.in_path)
+    cls_dict=cls_sizes(args.in_path)
+    print(cls_dict)
