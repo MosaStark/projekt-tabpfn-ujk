@@ -6,9 +6,11 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KernelDensity
 from collections import Counter
+from scipy.stats import entropy
 import argparse
 import base
 import pred
+import shapley
 import dataset
 
 class ShapleyGroup:
@@ -137,6 +139,7 @@ def gen_plot( fun,
 def multi_plot( fun,
 	            iter,
 	            text):
+	output=[]
 	x_label,y_label=text
 	for id_i,pair_i in iter:
 		x_i,y_i=fun(id_i,pair_i)
@@ -145,6 +148,8 @@ def multi_plot( fun,
         	  x_label=x_label,
         	  y_label=y_label,
         	  title=id_i)
+		output.append((id_i,x_i,y_i))
+	return output
 
 def diff_corl( matrix_path,
 	           result_path):
@@ -250,18 +255,27 @@ def dist_plot( matrix_path):
 	def helper(id,shap):
 		arr=shap.as_arr()
 		arr= (arr-np.mean(arr))/np.std(arr)
-#		arr=np.abs(arr)
 		arr=arr.reshape(-1, 1)
 		kde = KernelDensity(kernel='gaussian', bandwidth=0.2)
 		kde.fit(arr)
-
 		x=np.linspace(-6,6,#min(arr),max(arr), 
 			          num=50).reshape(-1, 1)
 		y=np.exp(kde.score_samples(x))
 		return x.flatten(),y
-	multi_plot( fun=helper,
+	output=multi_plot( fun=helper,
 	            iter=shap_dict.by_clf("RF"),
 	            text=("p","shapley value"))
+	data,x,dist=list(zip(*output))
+	matrix=[]
+	for d_i in dist:
+		row_i=[]
+		for d_j in dist:
+			row_i.append(entropy(d_i,d_j))
+		matrix.append(row_i)
+	shapley.show_heatmap( matrix,
+                          "kl-divergence",
+                          out_path=None)
+#	print(matrix)
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
