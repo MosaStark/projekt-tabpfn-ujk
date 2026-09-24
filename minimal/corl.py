@@ -37,6 +37,10 @@ class ShapleyGroup:
 		return cls( shap_dict["RF"],
     	            shap_dict["TabPFN"])
     
+	def by_clf(self,clf_type):
+		clf_dict= getattr(self, clf_type)
+		return clf_dict.items()
+
 	def resuid(self):
 		for id_i,(rf_i,tab_i) in self:
 			model_i = LinearRegression()
@@ -98,6 +102,36 @@ def diff_iter(result_path):
         diff_i=df_i["RF"]-df_i["TabPFN"]
         yield id_i,diff_i
 
+def plot(x,
+	     y,
+	     x_label,
+	     y_label,
+	     title):
+	r, p = pearsonr(x, y)
+	plt.scatter(x, y, color="steelblue", edgecolor="black", alpha=0.7)
+	text=f"\nPearson correlation: r = {r:.4f}, p = {p:.3e}"
+	plt.xlabel(x_label+text)
+	plt.ylabel(y_label)
+	plt.title(title)
+	plt.tight_layout()
+	plt.show()
+	return r,p
+
+def gen_plot( fun,
+	          iter,
+	          text):
+	x,y=[],[]
+	for id_i,data_i in iter:
+		x_i,y_i=fun(id_i,data_i)  
+		x.append(x_i)
+		y.append(y_i)
+	title,x_label,y_label=text
+	plot(x=x,
+	     y=y,
+	     x_label=x_label,
+	     y_label=y_label,
+	     title=title)
+
 def diff_corl( matrix_path,
 	           result_path):
     shap_dict=ShapleyGroup.read(matrix_path)
@@ -130,21 +164,6 @@ def corl_plot(in_path):
                        cols=["dataset","corl","p"])
     df=df.round(4)
     print(df.to_latex(index=False))
-
-def plot(x,
-	     y,
-	     x_label,
-	     y_label,
-	     title):
-	r, p = pearsonr(x, y)
-	plt.scatter(x, y, color="steelblue", edgecolor="black", alpha=0.7)
-	text=f"\nPearson correlation: r = {r:.4f}, p = {p:.3e}"
-	plt.xlabel(x_label+text)
-	plt.ylabel(y_label)
-	plt.title(title)
-	plt.tight_layout()
-	plt.show()
-	return r,p
 
 def plot_residuals(matrix_path):
     shap_dict=ShapleyGroup.read(matrix_path)
@@ -197,11 +216,32 @@ def outliners_plot(matrix_path,
         	 y_label="residuals",
         	 title=id_i)
 
+def stat_plot( matrix_path,
+	           clf_type="RF",
+	           result_path="results",
+	           std=True):
+	shap_dict=ShapleyGroup.read(matrix_path)
+	diff_dict=dict(diff_iter(result_path))
+	if(std):
+		stat_fun,desc=np.std,"std"
+	else:
+		stat_fun,desc=np.mean,"mean"
+	def helper(id,pair):
+		diff=diff_dict[id]
+		rf,tab=pair
+		arr=rf.as_arr()
+		y=stat_fun(arr)
+		return diff,y
+	gen_plot( fun=helper,
+	          iter=shap_dict,
+	          text=(clf_type,"diif",desc))
+
+
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--result", type=str, default="results")
 	parser.add_argument("--output", type=str, default="output/matrix")
-	parser.add_argument("--cmd", type=str, default="out")
+	parser.add_argument("--cmd", type=str, default="stats")
 	args=parser.parse_args()
 	if(args.cmd=="diff"):
 		diff_corl(args.output,args.result)
@@ -211,3 +251,5 @@ if __name__ == '__main__':
 		plot_residuals(args.output)
 	if(args.cmd=="out"):
 		outliners_plot(args.output)
+	if(args.cmd=="stats"):
+		stat_plot(args.output)
