@@ -132,21 +132,30 @@ def gen_plot( fun,
 	     y_label=y_label,
 	     title=title)
 
+def multi_plot( fun,
+	            iter,
+	            text):
+	x_label,y_label=text
+	for id_i,pair_i in iter:
+		x_i,y_i=fun(id_i,pair_i)
+		plot( x=x_i,
+        	  y=y_i,
+        	  x_label=x_label,
+        	  y_label=y_label,
+        	  title=id_i)
+
 def diff_corl( matrix_path,
 	           result_path):
-    shap_dict=ShapleyGroup.read(matrix_path)
-    diff_dict=dict(diff_iter(result_path))
-    diff,corl=[],[]
-    for id_i,(rf_i,tab_i) in shap_dict:
-        diff.append(diff_dict[id_i])
-        x=rf_i.as_arr()
-        y=tab_i.as_arr()
-        corl.append(pearsonr(x, y)[0])
-    plot(x=diff,
-	     y=corl,
-	     x_label="diff",
-	     y_label="corl",
-	     title="Shapley values corelation")
+	shap_dict=ShapleyGroup.read(matrix_path)
+	diff_dict=dict(diff_iter(result_path))
+	def helper(id,pair):
+		rf,tab=pair
+		diff=diff_dict[id]
+		corl=pearsonr(rf.as_arr(), tab.as_arr())[0]
+		return diff,corl
+	gen_plot( fun=helper,
+	              iter=shap_dict,
+	              text=("Shapley values corelation","diif","corel"))
 
 def corl_plot(in_path):
     shap_dict=ShapleyGroup.read(in_path)
@@ -166,55 +175,58 @@ def corl_plot(in_path):
     print(df.to_latex(index=False))
 
 def plot_residuals(matrix_path):
-    shap_dict=ShapleyGroup.read(matrix_path)
-    for id_i,(x_i,res_i) in shap_dict.resuid():
-        res_i=np.abs(res_i)
-        plot(x=x_i.flatten(),
-        	 y=res_i.flatten(),
-        	 x_label="RF",
-        	 y_label="TabPFN",
-        	 title=id_i)
-
+	shap_dict=ShapleyGroup.read(matrix_path)
+	def helper(id,pair):
+		x_i,res_i=pair
+		res_i=np.abs(res_i.flatten())
+		x_i=x_i.flatten()
+		return x_i,res_i
+	multi_plot( fun=helper,
+	            iter=shap_dict.resuid(),
+	            text=("RF","TabPFN"))
 
 def outliners(matrix_path,
 	          result_path="results"):
-    shap_dict=ShapleyGroup.read(matrix_path)
-    diff_dict=dict(diff_iter(result_path))
-    diff,max_res=[],[]
-    for id_i,(x_i,res_i) in shap_dict.resuid():
-        res_i=np.abs(res_i)
-        diff.append(diff_dict[id_i])
-        max_res.append(np.amax(res_i))
-        res_i=np.ceil(res_i)
-        res_i=res_i.flatten().tolist()
-        count=Counter(res_i)
-        keys=list(count.keys())
-        keys.sort()
-        print([count[key_i] for key_i in keys])
-    plot( x=diff,
-    	  y=max_res,
-    	  x_label="diff",
-    	  y_label="max_residuals",
-    	  title="Maximal resuidals")
+	shap_dict=ShapleyGroup.read(matrix_path)
+	diff_dict=dict(diff_iter(result_path))
+	def helper(id,pair):
+		x_i,res_i=pair
+		res_i=np.abs(res_i)
+		diff_i=diff_dict[id]
+		max_i=np.amax(res_i)
+		show_conter(res_i)
+		return diff_i,max_i
+	text=("Maximal resuidals","diif","max_residuals")
+	gen_plot( fun=helper,
+	          iter=shap_dict.resuid(),
+	          text=text)
+
+def show_conter(res_i):
+	res_i=np.ceil(res_i)
+	res_i=res_i.flatten().tolist()
+	count=Counter(res_i)
+	keys=list(count.keys())
+	keys.sort()
+	print([count[key_i] for key_i in keys])
 
 def outliners_plot(matrix_path,
 	               data_path="data"):
-    shap_dict=ShapleyGroup.read(matrix_path)
-    size_dict=dataset.cls_sizes(data_path)
-    for id_i,(x_i,res_i) in shap_dict.resuid():
-        shap_i=shap_dict.RF[id_i]
-        size_i=size_dict[id_i]
-        res_i=res_i.flatten()
-        res_i=np.abs(res_i)
-        size_vec=[]
-        for c in range(shap_i.cats):
-        	for f in range(shap_i.feats):
-        		size_vec.append(size_i[c])
-        plot(x=size_vec,
-        	 y=res_i,
-        	 x_label="class size",
-        	 y_label="residuals",
-        	 title=id_i)
+	shap_dict=ShapleyGroup.read(matrix_path)
+	size_dict=dataset.cls_sizes(data_path)
+	def helper(id_i,pair_i):
+		x_i,res_i=pair_i
+		shap_i=shap_dict.RF[id_i]
+		size_i=size_dict[id_i]
+		res_i=res_i.flatten()
+		res_i=np.abs(res_i)
+		size_vec=[]
+		for c in range(shap_i.cats):
+			for f in range(shap_i.feats):
+				size_vec.append(size_i[c])
+		return size_vec,res_i
+	multi_plot( fun=helper,
+	            iter=shap_dict.resuid(),
+	            text=("class size","residuals"))
 
 def stat_plot( matrix_path,
 	           clf_type="RF",
@@ -236,12 +248,11 @@ def stat_plot( matrix_path,
 	          iter=shap_dict,
 	          text=(clf_type,"diif",desc))
 
-
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--result", type=str, default="results")
 	parser.add_argument("--output", type=str, default="output/matrix")
-	parser.add_argument("--cmd", type=str, default="stats")
+	parser.add_argument("--cmd", type=str, default="out")
 	args=parser.parse_args()
 	if(args.cmd=="diff"):
 		diff_corl(args.output,args.result)
