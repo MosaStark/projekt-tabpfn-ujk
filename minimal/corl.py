@@ -4,6 +4,7 @@ from collections import defaultdict
 from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
+from sklearn.neighbors import KernelDensity
 from collections import Counter
 import argparse
 import base
@@ -52,7 +53,7 @@ class ShapleyGroup:
 			y_pred = model_i.predict(x)
 			res=y-y_pred
 			res=(res-np.mean(res))/np.std(res)      	
-			yield id_i,(x,res)
+			yield id_i,(x.flatten(),res.flatten())
 
 @dataclass
 class ShapleyMatrix:
@@ -113,6 +114,7 @@ def plot(x,
 	plt.xlabel(x_label+text)
 	plt.ylabel(y_label)
 	plt.title(title)
+	plt.grid(True)
 	plt.tight_layout()
 	plt.show()
 	return r,p
@@ -154,8 +156,8 @@ def diff_corl( matrix_path,
 		corl=pearsonr(rf.as_arr(), tab.as_arr())[0]
 		return diff,corl
 	gen_plot( fun=helper,
-	              iter=shap_dict,
-	              text=("Shapley values corelation","diif","corel"))
+	          iter=shap_dict,
+	          text=("Shapley values corelation","diif","corel"))
 
 def corl_plot(in_path):
     shap_dict=ShapleyGroup.read(in_path)
@@ -178,8 +180,7 @@ def plot_residuals(matrix_path):
 	shap_dict=ShapleyGroup.read(matrix_path)
 	def helper(id,pair):
 		x_i,res_i=pair
-		res_i=np.abs(res_i.flatten())
-		x_i=x_i.flatten()
+		res_i=np.abs(res_i)
 		return x_i,res_i
 	multi_plot( fun=helper,
 	            iter=shap_dict.resuid(),
@@ -203,8 +204,7 @@ def outliners(matrix_path,
 
 def show_conter(res_i):
 	res_i=np.ceil(res_i)
-	res_i=res_i.flatten().tolist()
-	count=Counter(res_i)
+	count=Counter(res_i.tolist())
 	keys=list(count.keys())
 	keys.sort()
 	print([count[key_i] for key_i in keys])
@@ -217,12 +217,10 @@ def outliners_plot(matrix_path,
 		x_i,res_i=pair_i
 		shap_i=shap_dict.RF[id_i]
 		size_i=size_dict[id_i]
-		res_i=res_i.flatten()
 		res_i=np.abs(res_i)
-		size_vec=[]
-		for c in range(shap_i.cats):
-			for f in range(shap_i.feats):
-				size_vec.append(size_i[c])
+		size_vec=[size_i[c]
+		    for c in range(shap_i.cats)
+			    for f in range(shap_i.feats)]
 		return size_vec,res_i
 	multi_plot( fun=helper,
 	            iter=shap_dict.resuid(),
@@ -247,12 +245,29 @@ def stat_plot( matrix_path,
 	gen_plot( fun=helper,
 	          iter=shap_dict,
 	          text=(clf_type,"diif",desc))
+def dist_plot( matrix_path):
+	shap_dict=ShapleyGroup.read(matrix_path)
+	def helper(id,shap):
+		arr=shap.as_arr()
+		arr= (arr-np.mean(arr))/np.std(arr)
+#		arr=np.abs(arr)
+		arr=arr.reshape(-1, 1)
+		kde = KernelDensity(kernel='gaussian', bandwidth=0.2)
+		kde.fit(arr)
+
+		x=np.linspace(-6,6,#min(arr),max(arr), 
+			          num=50).reshape(-1, 1)
+		y=np.exp(kde.score_samples(x))
+		return x.flatten(),y
+	multi_plot( fun=helper,
+	            iter=shap_dict.by_clf("RF"),
+	            text=("p","shapley value"))
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--result", type=str, default="results")
 	parser.add_argument("--output", type=str, default="output/matrix")
-	parser.add_argument("--cmd", type=str, default="out")
+	parser.add_argument("--cmd", type=str, default="dist")
 	args=parser.parse_args()
 	if(args.cmd=="diff"):
 		diff_corl(args.output,args.result)
@@ -264,3 +279,5 @@ if __name__ == '__main__':
 		outliners_plot(args.output)
 	if(args.cmd=="stats"):
 		stat_plot(args.output)
+	if(args.cmd=="dist"):
+		dist_plot(args.output)
