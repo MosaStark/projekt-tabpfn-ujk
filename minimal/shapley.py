@@ -1,11 +1,10 @@
 import numpy as np
 import shap
-import seaborn as sn
 import argparse
-import matplotlib.pyplot as plt
 import os,os.path
 from tqdm import tqdm
 import base
+import plot
 import make_results
 import dataset
 import exp
@@ -62,9 +61,9 @@ def show_shapley( matrix_path,
         matrix_i=np.load(path_i)["arr_0"]
         id_i=path_i.split("/")[-1]
         id_i=id_i.split(".")[0]
-        show_heatmap( matrix_i,
-                      id_i,
-                      heat_path)
+        plot.show_heatmap( matrix_i,
+                           id_i,
+                           heat_path)
 
 def is_shap_dir(in_path):
     paths=[path_i.split(".")[-1]=="npz" 
@@ -80,22 +79,6 @@ def get_matrix(in_path):
         all_shap.append(shap_j)
     shap_arr=np.concatenate(all_shap,axis=0)
     return np.mean(shap_arr,axis=0)
-
-
-def show_heatmap( matrix,
-                  title,
-                  out_path=None):
-    sn.heatmap( matrix,
-                cmap="YlGnBu",
-                annot=False)#,
-    plt.title(title)
-    if(out_path):
-        out_i=f"{out_path}/{title}"
-        plt.tight_layout()
-        plt.savefig(out_i,dpi=300, bbox_inches="tight")
-        plt.close()
-    else:
-        plt.show()
 
 def shapley_exp(in_path):
     conf=base.read_json(in_path)
