@@ -2,7 +2,8 @@ import numpy as np
 from dataclasses import dataclass
 from collections import defaultdict
 from scipy.stats import pearsonr
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
+import plot
 from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KernelDensity
 from collections import Counter
@@ -105,52 +106,6 @@ def diff_iter(result_path):
         diff_i=df_i["RF"]-df_i["TabPFN"]
         yield id_i,diff_i
 
-def plot(x,
-	     y,
-	     x_label,
-	     y_label,
-	     title):
-	r, p = pearsonr(x, y)
-	plt.scatter(x, y, color="steelblue", edgecolor="black", alpha=0.7)
-	text=f"\nPearson correlation: r = {r:.4f}, p = {p:.3e}"
-	plt.xlabel(x_label+text)
-	plt.ylabel(y_label)
-	plt.title(title)
-	plt.grid(True)
-	plt.tight_layout()
-	plt.show()
-	return r,p
-
-def gen_plot( fun,
-	          iter,
-	          text):
-	x,y=[],[]
-	for id_i,data_i in iter:
-		x_i,y_i=fun(id_i,data_i)  
-		x.append(x_i)
-		y.append(y_i)
-	title,x_label,y_label=text
-	plot(x=x,
-	     y=y,
-	     x_label=x_label,
-	     y_label=y_label,
-	     title=title)
-
-def multi_plot( fun,
-	            iter,
-	            text):
-	output=[]
-	x_label,y_label=text
-	for id_i,pair_i in iter:
-		x_i,y_i=fun(id_i,pair_i)
-		plot( x=x_i,
-        	  y=y_i,
-        	  x_label=x_label,
-        	  y_label=y_label,
-        	  title=id_i)
-		output.append((id_i,x_i,y_i))
-	return output
-
 def diff_corl( matrix_path,
 	           result_path):
 	shap_dict=ShapleyGroup.read(matrix_path)
@@ -160,20 +115,21 @@ def diff_corl( matrix_path,
 		diff=diff_dict[id]
 		corl=pearsonr(rf.as_arr(), tab.as_arr())[0]
 		return diff,corl
-	gen_plot( fun=helper,
-	          iter=shap_dict,
-	          text=("Shapley values corelation","diif","corel"))
+	plot.gen_plot( fun=helper,
+	               iter=shap_dict,
+        	       text=("Shapley values corelation","diif","corel"))
 
 def corl_plot(in_path):
     shap_dict=ShapleyGroup.read(in_path)
     lines=[]
-    plt.rcParams.update({'font.size': 12})
+    plot.set_font(size=12)
+#    plt.rcParams.update({'font.size': 12})
     for id_i,(rf_i,tab_i) in shap_dict:
-        r,p=plot(rf_i.as_arr(),
-                 tab_i.as_arr(),
-                 x_label="RF",
-                 y_label="TabPFN",
-                 title=id_i)
+        r,p=plot.plot(rf_i.as_arr(),
+                      tab_i.as_arr(),
+                      x_label="RF",
+                      y_label="TabPFN",
+                      title=id_i)
         lines.append([id_i,r,p])
     df=dataset.make_df(helper=lambda x:x,
                        iterable=lines,
@@ -187,9 +143,9 @@ def plot_residuals(matrix_path):
 		x_i,res_i=pair
 		res_i=np.abs(res_i)
 		return x_i,res_i
-	multi_plot( fun=helper,
-	            iter=shap_dict.resuid(),
-	            text=("RF","TabPFN"))
+	plot.multi_plot( fun=helper,
+	                 iter=shap_dict.resuid(),
+	                 text=("RF","TabPFN"))
 
 def outliners(matrix_path,
 	          result_path="results"):
@@ -203,9 +159,9 @@ def outliners(matrix_path,
 		show_conter(res_i)
 		return diff_i,max_i
 	text=("Maximal resuidals","diif","max_residuals")
-	gen_plot( fun=helper,
-	          iter=shap_dict.resuid(),
-	          text=text)
+	plot.gen_plot( fun=helper,
+	               iter=shap_dict.resuid(),
+	               text=text)
 
 def show_conter(res_i):
 	res_i=np.ceil(res_i)
@@ -227,9 +183,9 @@ def outliners_plot(matrix_path,
 		    for c in range(shap_i.cats)
 			    for f in range(shap_i.feats)]
 		return size_vec,res_i
-	multi_plot( fun=helper,
-	            iter=shap_dict.resuid(),
-	            text=("class size","residuals"))
+	plot.multi_plot( fun=helper,
+	                 iter=shap_dict.resuid(),
+	                 text=("class size","residuals"))
 
 def stat_plot( matrix_path,
 	           clf_type="RF",
@@ -247,9 +203,10 @@ def stat_plot( matrix_path,
 		arr=rf.as_arr()
 		y=stat_fun(arr)
 		return diff,y
-	gen_plot( fun=helper,
-	          iter=shap_dict,
-	          text=(clf_type,"diif",desc))
+	plot.gen_plot( fun=helper,
+	               iter=shap_dict,
+	               text=(clf_type,"diif",desc))
+
 def dist_plot( matrix_path):
 	shap_dict=ShapleyGroup.read(matrix_path)
 	def helper(id,shap):
@@ -262,9 +219,9 @@ def dist_plot( matrix_path):
 			          num=50).reshape(-1, 1)
 		y=np.exp(kde.score_samples(x))
 		return x.flatten(),y
-	output=multi_plot( fun=helper,
-	            iter=shap_dict.by_clf("RF"),
-	            text=("p","shapley value"))
+	output=plot.multi_plot( fun=helper,
+	                        iter=shap_dict.by_clf("RF"),
+	                        text=("p","shapley value"))
 	data,x,dist=list(zip(*output))
 	matrix=[]
 	for d_i in dist:
@@ -272,7 +229,7 @@ def dist_plot( matrix_path):
 		for d_j in dist:
 			row_i.append(entropy(d_i,d_j))
 		matrix.append(row_i)
-	shapley.show_heatmap( matrix,
+	plot.show_heatmap( matrix,
                           "kl-divergence",
                           out_path=None)
 #	print(matrix)
@@ -281,7 +238,7 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--result", type=str, default="results")
 	parser.add_argument("--output", type=str, default="output/matrix")
-	parser.add_argument("--cmd", type=str, default="dist")
+	parser.add_argument("--cmd", type=str, default="corl")
 	args=parser.parse_args()
 	if(args.cmd=="diff"):
 		diff_corl(args.output,args.result)
