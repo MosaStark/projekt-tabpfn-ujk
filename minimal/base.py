@@ -140,6 +140,24 @@ class ResultGroup(object):
                   for path_i in top_files(in_path)]
         return cls(results)
 
+class SmartDict(dict):
+
+    def remove(self,taboo):
+        if(not taboo):
+            return self
+        new_dict={ key_i:value_i
+                    for key_i,value_i in self.items()
+                        if(not key_i in taboo)}
+        return SmartDict(new_dict)
+
+    def select(self,subset):
+        if(not subset):
+            return self
+        new_dict={ key_i:value_i
+                    for key_i,value_i in self.items()
+                        if(key_i in subset)}
+        return SmartDict(new_dict)
+
 def make_dir(path):
     if(not os.path.isdir(path)):
         os.mkdir(path)
@@ -149,6 +167,7 @@ def top_files(path):
         paths=[ f'{path}/{file_i}' for file_i in os.listdir(path)]
     else:
         paths=path
+    paths.sort()
     return paths
 
 def iter_files(path):
