@@ -41,8 +41,11 @@ class ShapleyGroup:
 		return cls( shap_dict["RF"],
     	            shap_dict["TabPFN"])
     
-	def by_clf(self,clf_type):
+	def by_clf(self,clf_type,subset=None):
 		clf_dict= getattr(self, clf_type)
+		clf_dict= base.SmartDict(clf_dict)
+		if(subset):
+			clf_dict=clf_dict.select(subset)
 		return clf_dict.items()
 
 	def resuid(self):
@@ -207,38 +210,92 @@ def stat_plot( matrix_path,
 	               iter=shap_dict,
 	               text=(clf_type,"diif",desc))
 
-def dist_plot( matrix_path):
-	shap_dict=ShapleyGroup.read(matrix_path)
-	def helper(id,shap):
+
+class EmpDist:
+	RANGE=5
+	def __init__(self,dist_type="basic"):
+		self.kde = KernelDensity(kernel='gaussian', bandwidth=0.2)
+		self.dist_type=dist_type
+
+	def __call__(self,id,shap):
+		self.train(shap)
+		if(self.dist_type=="basic"):
+			x=self.get_x(1,1)
+			y=np.exp(self.kde.score_samples(x))
+			x=x.flatten()
+			return x,y
+		if(self.dist_type=="neg"):
+			x=self.get_x(1,0)
+		else:
+			x=self.get_x(0,1)
+		y=self.kde.score_samples(x)
+		x=x.flatten()
+		return np.log(np.abs(x)),y
+	
+	def train(self,shap):
 		arr=shap.as_arr()
 		arr= (arr-np.mean(arr))/np.std(arr)
 		arr=arr.reshape(-1, 1)
-		kde = KernelDensity(kernel='gaussian', bandwidth=0.2)
-		kde.fit(arr)
-		x=np.linspace(-6,6,#min(arr),max(arr), 
-			          num=50).reshape(-1, 1)
-		y=np.exp(kde.score_samples(x))
-		return x.flatten(),y
-	output=plot.multi_plot( fun=helper,
-	                        iter=shap_dict.by_clf("RF"),
-	                        text=("p","shapley value"))
-	data,x,dist=list(zip(*output))
-	matrix=[]
-	for d_i in dist:
-		row_i=[]
-		for d_j in dist:
-			row_i.append(entropy(d_i,d_j))
-		matrix.append(row_i)
-	plot.show_heatmap( matrix,
-                          "kl-divergence",
-                          out_path=None)
-#	print(matrix)
+		self.kde.fit(arr)
+		return self
+
+	def get_x(self,a,b):
+		return np.linspace( -self.RANGE*a,
+		                     self.RANGE*b, 
+			                 num=50).reshape(-1, 1)
+
+		y=kde.score_samples(x)
+		x=x.flatten()
+		return np.log(np.abs(x)),y
+
+def dist_plot( matrix_path):
+	shap_dict=ShapleyGroup.read(matrix_path)
+#	def helper(id,shap):
+#		print(id)
+#		arr=shap.as_arr()
+#		arr= (arr-np.mean(arr))/np.std(arr)
+#		arr=arr.reshape(-1, 1)
+#		kde = KernelDensity(kernel='gaussian', bandwidth=0.2)
+#		kde.fit(arr)
+#		x=np.linspace(-5,5,#min(arr),max(arr), 
+#			          num=50).reshape(-1, 1)
+#		y=kde.score_samples(x)
+#		x=x.flatten()
+#		return np.log(np.abs(x)),y
+#		y=np.exp(kde.score_samples(x))
+#		return x.flatten(),y
+
+	subset=[ #"cleveland","cmc",
+	         "wine-quality-red","wall-following",
+  	        "wine-quality-white","lymphography","yeast"
+	        ]
+#	plot_fun=plot.multi_plot
+	plot_fun=plot.plot_ts
+
+	output=plot_fun( fun=EmpDist("neg"),
+	                 iter=shap_dict.by_clf("RF",subset),
+	                 text=("Shapley value","Probability"))
+#	output=plot.plot_ts( fun=helper,
+#	                     iter=shap_dict.by_clf("RF",subset),
+#	                     text=("Shapley value","Probability"))
+
+
+#	data,x,dist=list(zip(*output))
+#	matrix=[]
+#	for d_i in dist:
+#		row_i=[]
+#		for d_j in dist:
+#			row_i.append(entropy(d_i,d_j))
+#		matrix.append(row_i)
+#	plot.show_heatmap( matrix,
+#                          "kl-divergence",
+#                          out_path=None)
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--result", type=str, default="results")
 	parser.add_argument("--output", type=str, default="output/matrix")
-	parser.add_argument("--cmd", type=str, default="corl")
+	parser.add_argument("--cmd", type=str, default="dist")
 	args=parser.parse_args()
 	if(args.cmd=="diff"):
 		diff_corl(args.output,args.result)

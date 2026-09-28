@@ -65,3 +65,19 @@ def multi_plot( fun,
 
 def set_font(size=12):
     plt.rcParams.update({'font.size': size})
+
+def plot_ts(fun, iter, text, title=None):
+    x_label, y_label = text
+    output = []
+    fig, ax = plt.subplots()
+    for id_i, pair_i in iter:
+        x_i, y_i = fun(id_i, pair_i)
+        ax.plot(x_i, y_i, label=id_i)
+        output.append((id_i, x_i, y_i))
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    if title:
+        ax.set_title(title)
+    ax.legend()
+    plt.show()
+    return output
