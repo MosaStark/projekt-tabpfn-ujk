@@ -41,9 +41,13 @@ class ShapleyGroup:
 		return cls( shap_dict["RF"],
     	            shap_dict["TabPFN"])
     
-	def by_clf(self,clf_type):
+	def by_clf(self,clf_type,subset=None):
 		clf_dict= getattr(self, clf_type)
-		return clf_dict.items()
+		if(subset is None):
+			return clf_dict.items()
+		for key_i,value_i in clf_dict.items():
+			if(key_i in subset):
+				yield key_i,value_i
 
 	def resuid(self):
 		for id_i,(rf_i,tab_i) in self:
@@ -215,30 +219,32 @@ def dist_plot( matrix_path):
 		arr=arr.reshape(-1, 1)
 		kde = KernelDensity(kernel='gaussian', bandwidth=0.2)
 		kde.fit(arr)
-		x=np.linspace(-6,6,#min(arr),max(arr), 
+		x=np.linspace(-5,5,#min(arr),max(arr), 
 			          num=50).reshape(-1, 1)
 		y=np.exp(kde.score_samples(x))
 		return x.flatten(),y
-	output=plot.multi_plot( fun=helper,
-	                        iter=shap_dict.by_clf("RF"),
-	                        text=("p","shapley value"))
-	data,x,dist=list(zip(*output))
-	matrix=[]
-	for d_i in dist:
-		row_i=[]
-		for d_j in dist:
-			row_i.append(entropy(d_i,d_j))
-		matrix.append(row_i)
-	plot.show_heatmap( matrix,
-                          "kl-divergence",
-                          out_path=None)
-#	print(matrix)
+	subset=[#"cleveland","cmc","wine-quality-red","wall-following",
+	        "wine-quality-white","lymphography","yeast"
+	        ]
+	output=plot.plot_ts( fun=helper,
+	                     iter=shap_dict.by_clf("RF",subset),
+	                     text=("Shapley value","Probability"))
+#	data,x,dist=list(zip(*output))
+#	matrix=[]
+#	for d_i in dist:
+#		row_i=[]
+#		for d_j in dist:
+#			row_i.append(entropy(d_i,d_j))
+#		matrix.append(row_i)
+#	plot.show_heatmap( matrix,
+#                          "kl-divergence",
+#                          out_path=None)
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--result", type=str, default="results")
 	parser.add_argument("--output", type=str, default="output/matrix")
-	parser.add_argument("--cmd", type=str, default="corl")
+	parser.add_argument("--cmd", type=str, default="dist")
 	args=parser.parse_args()
 	if(args.cmd=="diff"):
 		diff_corl(args.output,args.result)
