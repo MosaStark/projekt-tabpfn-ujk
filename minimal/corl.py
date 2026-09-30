@@ -8,6 +8,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KernelDensity
 from collections import Counter
 from scipy.stats import entropy
+from scipy.stats import kurtosis
 import argparse
 import base
 import pred
@@ -250,52 +251,37 @@ class EmpDist:
 
 def dist_plot( matrix_path):
 	shap_dict=ShapleyGroup.read(matrix_path)
-#	def helper(id,shap):
-#		print(id)
-#		arr=shap.as_arr()
-#		arr= (arr-np.mean(arr))/np.std(arr)
-#		arr=arr.reshape(-1, 1)
-#		kde = KernelDensity(kernel='gaussian', bandwidth=0.2)
-#		kde.fit(arr)
-#		x=np.linspace(-5,5,#min(arr),max(arr), 
-#			          num=50).reshape(-1, 1)
-#		y=kde.score_samples(x)
-#		x=x.flatten()
-#		return np.log(np.abs(x)),y
-#		y=np.exp(kde.score_samples(x))
-#		return x.flatten(),y
-
-	subset=[ #"cleveland","cmc",
+	subset=[ "cleveland","cmc",
 	         "wine-quality-red","wall-following",
-  	        "wine-quality-white","lymphography","yeast"
+#  	        "wine-quality-white","lymphography","yeast"
 	        ]
 #	plot_fun=plot.multi_plot
 	plot_fun=plot.plot_ts
-
 	output=plot_fun( fun=EmpDist("neg"),
 	                 iter=shap_dict.by_clf("RF",subset),
-	                 text=("Shapley value","Probability"))
-#	output=plot.plot_ts( fun=helper,
-#	                     iter=shap_dict.by_clf("RF",subset),
-#	                     text=("Shapley value","Probability"))
+	                 text=("Shapley value (log)","Probability (log)"))
 
-
-#	data,x,dist=list(zip(*output))
-#	matrix=[]
-#	for d_i in dist:
-#		row_i=[]
-#		for d_j in dist:
-#			row_i.append(entropy(d_i,d_j))
-#		matrix.append(row_i)
-#	plot.show_heatmap( matrix,
-#                          "kl-divergence",
-#                          out_path=None)
+def dist_tail( matrix_path,
+			   result_path="results"):
+	shap_dict=ShapleyGroup.read(matrix_path)
+	diff_dict=dict(diff_iter(result_path))
+	compute_dist=EmpDist("basic")
+	diff,tail=[],[]
+	for id_i,rf_i in shap_dict.by_clf("RF"):
+		x_i,y_i=compute_dist(id_i,rf_i)
+		tail.append(kurtosis(y_i))
+		diff.append(diff_dict[id_i])
+	plot.plot(diff,
+         tail,
+         "diff",
+         "kurtosis",
+         "Tail")
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--result", type=str, default="results")
 	parser.add_argument("--output", type=str, default="output/matrix")
-	parser.add_argument("--cmd", type=str, default="dist")
+	parser.add_argument("--cmd", type=str, default="tail")
 	args=parser.parse_args()
 	if(args.cmd=="diff"):
 		diff_corl(args.output,args.result)
@@ -309,3 +295,5 @@ if __name__ == '__main__':
 		stat_plot(args.output)
 	if(args.cmd=="dist"):
 		dist_plot(args.output)
+	if(args.cmd=="tail"):
+		dist_tail(args.output)
