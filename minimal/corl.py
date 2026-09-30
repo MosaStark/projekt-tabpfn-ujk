@@ -211,7 +211,6 @@ def stat_plot( matrix_path,
 	               iter=shap_dict,
 	               text=(clf_type,"diif",desc))
 
-
 class EmpDist:
 	RANGE=5
 	def __init__(self,dist_type="basic"):
@@ -266,9 +265,10 @@ def dist_tail( matrix_path,
 	shap_dict=ShapleyGroup.read(matrix_path)
 	diff_dict=dict(diff_iter(result_path))
 	compute_dist=EmpDist("basic")
-	diff,tail=[],[]
+	data,diff,tail=[],[],[]
 	for id_i,rf_i in shap_dict.by_clf("RF"):
 		x_i,y_i=compute_dist(id_i,rf_i)
+		data.append(id_i)
 		tail.append(kurtosis(y_i))
 		diff.append(diff_dict[id_i])
 	plot.plot(diff,
@@ -276,6 +276,11 @@ def dist_tail( matrix_path,
          "diff",
          "kurtosis",
          "Tail")
+	df=dataset.make_df(helper=lambda x:x,
+                       iterable=zip(data,diff,tail),
+                       cols=["dataset","corl","p"])
+	df=df.round(4)
+	print(df.to_latex(index=False))
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
