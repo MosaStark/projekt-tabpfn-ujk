@@ -119,9 +119,13 @@ def diff_corl( matrix_path,
 		diff=diff_dict[id]
 		corl=pearsonr(rf.as_arr(), tab.as_arr())[0]
 		return diff,corl
+	text=( "Shapley values corelation", 
+		   "Difference: Random Forest - TabPNF",
+		   "corel")
 	plot.gen_plot( fun=helper,
 	               iter=shap_dict,
-        	       text=("Shapley values corelation","diif","corel"))
+        	       text=text,
+        	       labels=True)
 
 def corl_plot(in_path):
     shap_dict=ShapleyGroup.read(in_path)
@@ -162,10 +166,13 @@ def outliners(matrix_path,
 		max_i=np.amax(res_i)
 		show_conter(res_i)
 		return diff_i,max_i
-	text=("Maximal resuidals","diif","max_residuals")
+	text=("Maximal resuidals", 
+		  "Difference: Random Forest - TabPNF",
+		  "max_residuals")
 	plot.gen_plot( fun=helper,
 	               iter=shap_dict.resuid(),
-	               text=text)
+	               text=text,
+	               labels=True)
 
 def show_conter(res_i):
 	res_i=np.ceil(res_i)
@@ -250,13 +257,13 @@ class EmpDist:
 
 def dist_plot( matrix_path):
 	shap_dict=ShapleyGroup.read(matrix_path)
-	subset=[ "cleveland","cmc",
-	         "wine-quality-red","wall-following",
-#  	        "wine-quality-white","lymphography","yeast"
+	subset=[ "cleveland","cmc","wine-quality-red",
+#	         "wall-following",
+#  	         "wine-quality-white","lymphography","yeast"
 	        ]
 #	plot_fun=plot.multi_plot
 	plot_fun=plot.plot_ts
-	output=plot_fun( fun=EmpDist("neg"),
+	output=plot_fun( fun=EmpDist("basic"),
 	                 iter=shap_dict.by_clf("RF",subset),
 	                 text=("Shapley value (log)","Probability (log)"))
 
@@ -265,19 +272,19 @@ def dist_tail( matrix_path,
 	shap_dict=ShapleyGroup.read(matrix_path)
 	diff_dict=dict(diff_iter(result_path))
 	compute_dist=EmpDist("basic")
-	data,diff,tail=[],[],[]
+	diff,tail={},{}
 	for id_i,rf_i in shap_dict.by_clf("RF"):
 		x_i,y_i=compute_dist(id_i,rf_i)
-		data.append(id_i)
-		tail.append(kurtosis(y_i))
-		diff.append(diff_dict[id_i])
-	plot.plot(diff,
-         tail,
-         "diff",
-         "kurtosis",
-         "Tail")
-	df=dataset.make_df(helper=lambda x:x,
-                       iterable=zip(data,diff,tail),
+		tail[id_i]=kurtosis(y_i)
+		diff[id_i]=diff_dict[id_i]
+    
+	plot.plot_txt( diff,
+                    tail,
+                    "Difference: Random Forest - TabPNF",
+                    "Kurtosis",
+                    "Long tail of distribution")    
+	df=dataset.make_df(helper=lambda id_i:[id_i,diff[id_i],tail[id_i]],
+                       iterable=tail.keys(),
                        cols=["dataset","corl","p"])
 	df=df.round(4)
 	print(df.to_latex(index=False))
@@ -286,7 +293,7 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--result", type=str, default="results")
 	parser.add_argument("--output", type=str, default="output/matrix")
-	parser.add_argument("--cmd", type=str, default="tail")
+	parser.add_argument("--cmd", type=str, default="out")
 	args=parser.parse_args()
 	if(args.cmd=="diff"):
 		diff_corl(args.output,args.result)
@@ -295,7 +302,7 @@ if __name__ == '__main__':
 	if(args.cmd=="res"):
 		plot_residuals(args.output)
 	if(args.cmd=="out"):
-		outliners_plot(args.output)
+		outliners(args.output)
 	if(args.cmd=="stats"):
 		stat_plot(args.output)
 	if(args.cmd=="dist"):

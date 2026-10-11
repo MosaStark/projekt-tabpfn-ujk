@@ -1,4 +1,5 @@
 from scipy.stats import pearsonr
+import matplotlib.ticker as ticker
 import matplotlib.pyplot as plt
 import seaborn as sn
 
@@ -28,29 +29,81 @@ def plot(x,
     plt.xlabel(x_label+text)
     plt.ylabel(y_label)
     plt.title(title)
-    plt.grid(True)
+    ax = plt.gca()
+    ax.xaxis.set_major_locator(ticker.MaxNLocator(10)) 
+    plt.grid(True,linewidth=1.5)
     plt.tight_layout()
     plt.show()
     return r,p
 
+def plot_txt( x,
+              y,
+              x_label,
+              y_label,
+              title):
+    keys=list(x.keys())
+    x_arr=[x[key_i] for key_i in x]
+    y_arr=[y[key_i] for key_i in y]
+    r, p = pearsonr(x_arr, y_arr)
+    plt.scatter(x_arr, y_arr, color="steelblue", edgecolor="black", alpha=0.7)
+    text=f"\nPearson correlation: r = {r:.4f}, p = {p:.3e}"
+    plt.xlabel(x_label+text)
+    plt.ylabel(y_label)
+    plt.title(title)
+    for key_i in keys:
+        x_i=x[key_i]
+        y_i=y[key_i]
+        plt.annotate( key_i,
+                      (x_i, y_i),
+                      textcoords="offset points",
+                      xytext=(5, 5),  
+                      fontsize=8)
+    ax = plt.gca()
+    ax.xaxis.set_major_locator(ticker.MaxNLocator(10))         
+    ax.yaxis.set_major_locator(ticker.MaxNLocator(10))         
+    plt.grid(True,linewidth=1.5)
+    plt.tight_layout()
+    plt.show()
+
+#def gen_plot( fun,
+#              iter,
+#              text):
+#    x,y=[],[]
+#    for id_i,data_i in iter:
+#        x_i,y_i=fun(id_i,data_i)  
+#        x.append(x_i)
+#        y.append(y_i)
+#    title,x_label,y_label=text
+#    plot(x=x,
+#         y=y,
+#         x_label=x_label,
+#         y_label=y_label,
+#         title=title)
+
 def gen_plot( fun,
               iter,
-              text):
-    x,y=[],[]
+              text,
+              labels=False):
+    x,y={},{}
     for id_i,data_i in iter:
         x_i,y_i=fun(id_i,data_i)  
-        x.append(x_i)
-        y.append(y_i)
+        x[id_i]=x_i
+        y[id_i]=y_i
     title,x_label,y_label=text
-    plot(x=x,
-         y=y,
-         x_label=x_label,
-         y_label=y_label,
-         title=title)
+    args={ "x":x,
+           "y":y,
+           "x_label":x_label,
+           "y_label":y_label,
+           "title":title}
+    if(labels):
+        plot_txt(**args)
+    else:
+        plot(**args)
 
 def multi_plot( fun,
                 iter,
                 text):
+    print(list(iter))
     output=[]
     x_label,y_label=text
     for id_i,pair_i in iter:
@@ -69,15 +122,16 @@ def set_font(size=12):
 def plot_ts(fun, iter, text, title=None):
     x_label, y_label = text
     output = []
-    fig, ax = plt.subplots()
     for id_i, pair_i in iter:
         x_i, y_i = fun(id_i, pair_i)
-        ax.plot(x_i, y_i, label=id_i)
+        plt.plot(x_i, y_i, label=id_i)
         output.append((id_i, x_i, y_i))
-    ax.set_xlabel(x_label)
-    ax.set_ylabel(y_label)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
     if title:
-        ax.set_title(title)
-    ax.legend()
+        plt.title(title)
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
     plt.show()
     return output
